@@ -92,11 +92,11 @@ impl Formatter {
             .collect::<Vec<_>>()
             .join("  ");
         let sep = if self.columns.is_empty() {
-            String::default().dimmed().blue()
+            String::default().blue()
         } else {
-            format!("╼{thin_space}").dimmed().blue()
+            format!("╼{thin_space}").blue()
         };
-        format!("{leading}{sep}").dimmed().blue()
+        format!("{leading}{sep}").blue()
     }
     fn leaf(&self, value: impl ToString) -> String {
         let leading = self.leading().to_string();
