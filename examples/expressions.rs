@@ -3,10 +3,6 @@
 
 use tree_formatter::*;
 
-// fn main() {
-//     println!("TODO")
-// }
-
 #[derive(Debug, Clone)]
 enum AstNode {
     BinaryOperation {
