@@ -85,6 +85,7 @@ impl Formatter {
         self
     }
     fn leading(&self) -> impl ToString {
+        let depth = self.columns.len();
         let thin_space = "\u{2009}";
         let leading = self.columns
             .iter()
@@ -92,15 +93,30 @@ impl Formatter {
             .collect::<Vec<_>>()
             .join("  ");
         let sep = if self.columns.is_empty() {
-            String::default().blue()
+            String::default()
         } else {
-            format!("╼{thin_space}").blue()
+            format!("╼{thin_space}")
         };
-        format!("{leading}{sep}").blue()
+        let string = format!("{leading}{sep}");
+        match depth % 4 {
+            0 => string.bold().blue(),
+            1 => string.bold().blue(),
+            2 => string.bold().blue(),
+            4 => string.bold().blue(),
+            _ => string.bold().blue(),
+        }
     }
     fn leaf(&self, value: impl ToString) -> String {
+        let value = value.to_string();
+        let depth = self.columns.len();
         let leading = self.leading().to_string();
-        let trailing = value.to_string().bright_cyan();
+        let trailing = match depth % 4 {
+            0 => value.bright_red(),
+            1 => value.bright_green(),
+            2 => value.bright_yellow(),
+            3 => value.bright_cyan(),
+            _ => value.bright_white(),
+        };
         format!("{leading}{trailing}")
     }
     fn branch(&self, label: impl ToString, children: &[PrettyTree]) -> String {
