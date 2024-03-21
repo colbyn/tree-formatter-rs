@@ -113,6 +113,9 @@ impl PrettyFragment {
 impl ToPrettyTree for PrettyTree {
     fn to_pretty_tree(&self) -> PrettyTree { self.clone() }
 }
+impl ToPrettyTree for String {
+    fn to_pretty_tree(&self) -> PrettyTree { PrettyTree::string(self) }
+}
 impl<T> ToPrettyTree for &T where T: ToPrettyTree {
     fn to_pretty_tree(&self) -> PrettyTree { (*self).to_pretty_tree() }
 }
