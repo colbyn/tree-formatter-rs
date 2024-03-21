@@ -1,14 +1,10 @@
 #![allow(unused)]
-pub mod formatter;
 
-use std::fmt::Display;
+pub mod formatter;
+use std::{collections::{BTreeMap, BTreeSet, HashMap, HashSet}, fmt::Display};
 
 pub trait ToPrettyTree {
     fn to_pretty_tree(&self) -> PrettyTree;
-}
-
-impl ToPrettyTree for PrettyTree {
-    fn to_pretty_tree(&self) -> PrettyTree { self.clone() }
 }
 
 pub trait PrettyTreePrinter {
@@ -44,16 +40,16 @@ impl PrettyTree {
     pub fn str(value: impl AsRef<str>) -> Self {
         Self::Value(PrettyValue { text: value.as_ref().to_owned() })
     }
-    pub fn fragment<T: Into<PrettyTree>>(list: impl IntoIterator<Item = T>) -> Self {
-        Self::Fragment(PrettyFragment { nodes: list.into_iter().map(Into::into).collect() })
+    pub fn fragment<T: ToPrettyTree>(list: impl IntoIterator<Item = T>) -> Self {
+        Self::Fragment(PrettyFragment { nodes: list.into_iter().map(|x| x.to_pretty_tree()).collect() })
     }
-    pub fn branch_of(
+    pub fn branch_of<Type: ToPrettyTree>(
         label: impl AsRef<str>,
-        children: &[PrettyTree]
+        children: impl IntoIterator<Item = Type>
     ) -> Self {
         Self::Branch(PrettyBranch {
             label: label.as_ref().to_string(),
-            children: children.to_owned().into_iter().map(Into::into).collect(),
+            children: children.into_iter().map(|x| x.to_pretty_tree()).collect(),
         })
     }
     pub fn some_value(value: impl Into<PrettyValue>) -> Self {
@@ -92,13 +88,13 @@ pub struct PrettyBranch {
 }
 
 impl PrettyBranch {
-    pub fn from_iter<Label: ToString, Child: Into<PrettyTree>>(
-        label: &Label,
+    pub fn from_iter<Label: ToString, Child: ToPrettyTree>(
+        label: Label,
         children: impl IntoIterator<Item = Child>
     ) -> Self {
         PrettyBranch {
             label: label.to_string(),
-            children: children.into_iter().map(Into::into).collect(),
+            children: children.into_iter().map(|x| x.to_pretty_tree()).collect(),
         }
     }
 }
@@ -109,7 +105,122 @@ pub struct PrettyFragment {
 }
 
 impl PrettyFragment {
-    pub fn from_iter<Value: Into<PrettyTree>>(list: impl IntoIterator<Item = Value>) -> Self {
-        Self { nodes: list.into_iter().map(Into::into).collect() }
+    pub fn from_iter<Value: ToPrettyTree>(list: impl IntoIterator<Item = Value>) -> Self {
+        Self { nodes: list.into_iter().map(|x| x.to_pretty_tree()).collect() }
     }
 }
+
+impl ToPrettyTree for PrettyTree {
+    fn to_pretty_tree(&self) -> PrettyTree { self.clone() }
+}
+impl<T> ToPrettyTree for &T where T: ToPrettyTree {
+    fn to_pretty_tree(&self) -> PrettyTree { (*self).to_pretty_tree() }
+}
+impl<Key, Value> ToPrettyTree for (Key, Value) where Key: ToString, Value: ToPrettyTree {
+    fn to_pretty_tree(&self) -> PrettyTree {
+        PrettyTree::branch_of(self.0.to_string(), &[ self.1.to_pretty_tree() ])
+    }
+}
+impl<T: ToPrettyTree> ToPrettyTree for Vec<T> {
+    fn to_pretty_tree(&self) -> PrettyTree {
+        let name = std::any::type_name::<Self>();
+        let children = self.iter().map(ToPrettyTree::to_pretty_tree).collect::<Vec<_>>();
+        PrettyTree::branch_of(name, &children)
+    }
+}
+impl<T: ToPrettyTree> ToPrettyTree for &[T] {
+    fn to_pretty_tree(&self) -> PrettyTree {
+        let name = std::any::type_name::<Self>();
+        let children = self.iter().map(ToPrettyTree::to_pretty_tree).collect::<Vec<_>>();
+        PrettyTree::branch_of(name, &children)
+    }
+}
+impl<Key: ToString, Value: ToPrettyTree> ToPrettyTree for HashMap<Key, Value> {
+    fn to_pretty_tree(&self) -> PrettyTree {
+        let name = std::any::type_name::<Self>();
+        let children = self
+            .iter()
+            .map(|(key, value)| {
+                PrettyTree::branch_of(key.to_string(), &[ value.to_pretty_tree() ])
+            })
+            .collect::<Vec<_>>();
+        PrettyTree::branch_of(name, &children)
+    }
+}
+impl<Key: ToString, Value: ToPrettyTree> ToPrettyTree for BTreeMap<Key, Value> {
+    fn to_pretty_tree(&self) -> PrettyTree {
+        let name = std::any::type_name::<Self>();
+        let children = self
+            .iter()
+            .map(|(key, value)| {
+                PrettyTree::branch_of(key.to_string(), &[ value.to_pretty_tree() ])
+            })
+            .collect::<Vec<_>>();
+        PrettyTree::branch_of(name, &children)
+    }
+}
+impl<T: ToPrettyTree> ToPrettyTree for HashSet<T> {
+    fn to_pretty_tree(&self) -> PrettyTree {
+        let name = std::any::type_name::<Self>();
+        let children = self.iter().map(ToPrettyTree::to_pretty_tree).collect::<Vec<_>>();
+        PrettyTree::branch_of(name, &children)
+    }
+}
+impl<T: ToPrettyTree> ToPrettyTree for BTreeSet<T> {
+    fn to_pretty_tree(&self) -> PrettyTree {
+        let name = std::any::type_name::<Self>();
+        let children = self.iter().map(ToPrettyTree::to_pretty_tree).collect::<Vec<_>>();
+        PrettyTree::branch_of(name, &children)
+    }
+}
+
+// impl<Type> From<&Type> for PrettyTree where Type: ToPrettyTree {
+//     fn from(value: &Type) -> Self {
+//         value.to_pretty_tree()
+//     }
+// }
+// impl<Left, Right> From<(&Left, &Right)> for PrettyTree where Left: ToString, Right: ToPrettyTree {
+//     fn from(value: (&Left, &Right)) -> Self {
+//         unimplemented!()
+//     }
+// }
+
+#[cfg(feature = "serde_json")]
+impl ToPrettyTree for serde_json::Value {
+    fn to_pretty_tree(&self) -> PrettyTree {
+        match self {
+            Self::Null => PrettyTree::str("Null"),
+            Self::Bool(x) => PrettyTree::string(format!("Bool({x})")),
+            Self::Number(x) => PrettyTree::string(format!("Number({x})")),
+            Self::String(x) => PrettyTree::string(format!("String({x})")),
+            Self::Array(xs) => PrettyTree::some_branch(PrettyBranch::from_iter("Array", xs.clone())),
+            Self::Object(xs) => PrettyTree::some_branch(PrettyBranch::from_iter("Object", xs)),
+        }
+    }
+}
+
+#[cfg(feature = "indexmap")]
+impl<Key: ToString, Value: ToPrettyTree> ToPrettyTree for indexmap::IndexMap<Key, Value> {
+    fn to_pretty_tree(&self) -> PrettyTree {
+        let name = std::any::type_name::<Self>();
+        let children = self
+            .iter()
+            .map(|(key, value)| (key.to_string(), value.to_pretty_tree()))
+            .collect::<Vec<_>>();
+        PrettyTree::branch_of(name, children)
+    }
+}
+
+#[cfg(feature = "indexmap")]
+impl<Type: ToPrettyTree> ToPrettyTree for indexmap::IndexSet<Type> {
+    fn to_pretty_tree(&self) -> PrettyTree {
+        let name = std::any::type_name::<Self>();
+        let children = self
+            .iter()
+            .map(|x| x.to_pretty_tree())
+            .collect::<Vec<_>>();
+        PrettyTree::branch_of(name, children)
+    }
+}
+
+
