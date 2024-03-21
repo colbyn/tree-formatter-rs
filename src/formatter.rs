@@ -84,39 +84,37 @@ impl Formatter {
         self.columns.pop();
         self
     }
+    fn color(depth: usize, string: impl ToString) -> impl ToString {
+        let string = string.to_string();
+        match depth % 4 {
+            0 => string.truecolor(255, 0, 0), // RED
+            1 => string.truecolor(252, 255, 87), // YELLOW
+            2 => string.truecolor(0, 255, 0), // GREEN
+            _ => string.truecolor(102, 255, 252), // BLUE
+        }
+    }
     fn leading(&self) -> impl ToString {
         let depth = self.columns.len();
         let thin_space = "\u{2009}";
         let leading = self.columns
             .iter()
-            .map(ToString::to_string)
+            .enumerate()
+            .map(|(ix, c)| Self::color(ix, c).to_string())
             .collect::<Vec<_>>()
             .join("  ");
         let sep = if self.columns.is_empty() {
             String::default()
         } else {
-            format!("╼{thin_space}")
+            let depth = if depth > 1 { depth - 1 } else { 0 };
+            Self::color(depth, format!("╼{thin_space}")).to_string()
         };
-        let string = format!("{leading}{sep}");
-        match depth % 4 {
-            0 => string.bold().blue(),
-            1 => string.bold().blue(),
-            2 => string.bold().blue(),
-            4 => string.bold().blue(),
-            _ => string.bold().blue(),
-        }
+        format!("{leading}{sep}")
     }
     fn leaf(&self, value: impl ToString) -> String {
         let value = value.to_string();
         let depth = self.columns.len();
         let leading = self.leading().to_string();
-        let trailing = match depth % 4 {
-            0 => value.bright_red(),
-            1 => value.bright_green(),
-            2 => value.bright_yellow(),
-            3 => value.bright_cyan(),
-            _ => value.bright_white(),
-        };
+        let trailing = Self::color(depth, value.bold()).to_string();
         format!("{leading}{trailing}")
     }
     fn branch(&self, label: impl ToString, children: &[PrettyTree]) -> String {
