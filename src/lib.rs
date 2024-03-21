@@ -35,9 +35,14 @@ impl PrettyTree {
         Self::Value(PrettyValue { text: format!("{value}") })
     }
     pub fn string<T: ToString>(value: T) -> Self {
-        Self::Value(PrettyValue { text: value.to_string() })
+        let value = value.to_string();
+        Self::Value(PrettyValue { text: format!("{value:?}") })
     }
     pub fn str(value: impl AsRef<str>) -> Self {
+        let value = value.as_ref();
+        Self::Value(PrettyValue { text: format!("{value:?}") })
+    }
+    pub fn leaf(value: impl AsRef<str>) -> Self {
         Self::Value(PrettyValue { text: value.as_ref().to_owned() })
     }
     pub fn fragment<T: ToPrettyTree>(list: impl IntoIterator<Item = T>) -> Self {
