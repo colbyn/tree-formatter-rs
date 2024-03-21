@@ -52,6 +52,15 @@ impl PrettyTree {
             children: children.into_iter().map(|x| x.to_pretty_tree()).collect(),
         })
     }
+    pub fn key_value(
+        key: impl ToString,
+        value: impl ToPrettyTree
+    ) -> Self {
+        Self::Branch(PrettyBranch {
+            label: key.to_string(),
+            children: vec![ value.to_pretty_tree() ],
+        })
+    }
     pub fn some_value(value: impl Into<PrettyValue>) -> Self {
         Self::Value(value.into())
     }
